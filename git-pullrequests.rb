@@ -146,7 +146,9 @@ pullrequests.each do |pullrequest|
 					pdf.text "Additions: " + commit['stats']['additions'].to_s + " - Deletions: " + commit['stats']['deletions'].to_s
 					commit['files'].each do |file|
 						pdf.text "Changes: \n\n"
-						pdf.text file['patch'] + "\n\n"
+						if file['patch']
+							pdf.text file['patch'] + "\n\n"
+						end
 						pdf.text "End of change \n"
 					end
 				end
