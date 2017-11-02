@@ -39,7 +39,7 @@ end
 
 begin
 	Date.strptime(start_date, '%m-%d-%Y')
-rescue ArgumentError
+rescue ArgumentError,TypeError
 	arg_error.concat("Start Date is invalid\n")
 end
 
@@ -49,12 +49,16 @@ end
 
 begin
 	Date.strptime(end_date, '%m-%d-%Y')
-rescue ArgumentError
+rescue ArgumentError,TypeError
 	arg_error.concat("End Date is invalid\n")
 end
 
-if end_date < start_date
-	arg_error.concat("End Date must be after Start Date")
+begin
+	if end_date < start_date
+		arg_error.concat("End Date must be after Start Date")
+	end
+rescue NoMethodError
+
 end
 
 if !repo
