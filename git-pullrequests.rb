@@ -18,11 +18,11 @@ time = Time.new
 
 options = Slop.parse do |o|
 	o.banner = "git-pullrequests.rb Usage: "
-	o.string '-s', '--startdate', 'Start Date mm-dd-yyyy'
-	o.string '-e', '--enddate', 'End Date mm-dd-yyyy'
-	o.string '-r', '--repo', 'Repository'
-	o.string '-o', '--org', 'Organization', default: ''
-	o.string '-p', '--path', 'Path', default: ''
+	o.string '-s', '--startdate', 'REQUIRED: Start Date mm-dd-yyyy'
+	o.string '-e', '--enddate', 'REQUIRED: End Date mm-dd-yyyy'
+	o.string '-r', '--repo', 'REQUIRED: Repository (i.e. eightzerobits/git-audit-tools)'
+	o.string '-o', '--org', 'OPTIONAL: Organization (i.e eightzerobits)', default: ''
+	o.string '-p', '--path', 'OPTIONAL: Restrict pull requests to those including changes to this file path (i.e. fonts/DejaViSans.ttf)', default: ''
 end
 
 start_date = options[:startdate]
