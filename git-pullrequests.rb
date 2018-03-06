@@ -54,7 +54,7 @@ rescue ArgumentError,TypeError
 end
 
 begin
-	if end_date < start_date
+	if Date.strptime(end_date, '%m-%d-%Y') < Date.strptime(start_date, '%m-%d-%Y')
 		arg_error.concat("End Date must be after Start Date")
 	end
 rescue NoMethodError
@@ -79,7 +79,6 @@ end
 
 client = Octokit::Client.new(:access_token => configuration["apikey"])
 client.auto_paginate = true
-#client.per_page = 500
 
 begin 
 	user = client.user
@@ -117,67 +116,58 @@ end
 #exit
 
 pullrequests.each do |pullrequest|
-# client.pull_merged?(repo,pullrequest['number']) &&
 	if pullrequest['merged_at']
 		if Date.parse(pullrequest['merged_at'].strftime('%Y-%m-%d %H:%M %Z'),'%m-d-%Y') >= Date.strptime(start_date, '%m-%d-%Y') && Date.parse(pullrequest['merged_at'].strftime('%Y-%m-%d %H:%M %Z'),'%m-d-%Y') <= Date.strptime(end_date, '%m-%d-%Y')
-			files = client.pull_request_files(repo,pullrequest['number'])
-			files.each do |file|
-				if file['filename'] == path || !path || path == ''
-					pdf.start_new_page(:top_margin => 50)
-					pdf.font_size(22)
-					pdf.text pullrequest['title'] + "(#" + pullrequest['number'].to_s + ")"
-					pdf.font_size(9)
-					pdf.text "Created at: " + pullrequest['created_at'].strftime('%Y-%m-%d %H:%M %p') + " by " + pullrequest['user']['login'] + "\n\n"
-					pdf.text "Conversation: \n"
-					pdf.text pullrequest['user']['login'] +  " said at " + pullrequest['created_at'].strftime('%Y-%m-%d %H:%M %p') + ": " + pullrequest['body'] + "\n"
-					client.issue_comments(repo,pullrequest['number']).each do |comment|
-						pdf.text comment['user']['login'] + " said at " + comment['updated_at'].strftime('%Y-%m-%d %H:%M %p') + ": " + comment['body'] + "\n"
+			pdf.start_new_page(:top_margin => 50)
+			pdf.font_size(22)
+			pdf.text pullrequest['title'] + "(#" + pullrequest['number'].to_s + ")"
+			pdf.font_size(9)
+			pdf.text "Created at: " + pullrequest['created_at'].strftime('%Y-%m-%d %H:%M %p') + " by " + pullrequest['user']['login'] + "\n\n"
+			pdf.text "Conversation: \n"
+			pdf.text pullrequest['user']['login'].to_s +  " said at " + pullrequest['created_at'].strftime('%Y-%m-%d %H:%M %p') + ": " + pullrequest['body'].to_s + "\n"
+			client.issue_comments(repo,pullrequest['number']).each do |comment|
+				pdf.text comment['user']['login'] + " said at " + comment['updated_at'].strftime('%Y-%m-%d %H:%M %p') + ": " + comment['body'] + "\n"
+			end
+			pdf.text "\n"
+			pdf.text "Reviews \n\n"
+			reviews = client.pull_request_reviews(repo,pullrequest['number'],:accept => 'application/vnd.github.v3.raw+json')
+			if reviews.count < 1
+				pdf.text "No Reviews \n\n"
+			else
+				reviews.each do |review|
+					pdf.text "Reviewed by: " + review['user']['login'] + "\n"
+					pdf.text "Reviewed at: " + review['submitted_at'].strftime('%Y-%m-%d %H:%M %p') + "\n"
+					client.pull_request_review_comments(repo,pullrequest['number'],review['id'],:accept=>'application/vnd.github.black-cat-preview').each do |comment|
+						pdf.text "Comment: " + comment['body'] + "\n"
+						pdf.text "Relevant Lines in " + comment['path'] + ": \n" + comment['diff_hunk'] + "\n"
 					end
-					pdf.text "\n"
-					pdf.text "Reviews \n\n"
-					reviews = client.pull_request_reviews(repo,pullrequest['number'],:accept => 'application/vnd.github.v3.raw+json')
-					if reviews.count < 1
-						pdf.text "No Reviews \n\n"
-					else
-						reviews.each do |review|
-							pdf.text "Reviewed by: " + review['user']['login'] + "\n"
-							pdf.text "Reviewed at: " + review['submitted_at'].strftime('%Y-%m-%d %H:%M %p') + "\n"
-							client.pull_request_review_comments(repo,pullrequest['number'],review['id'],:accept=>'application/vnd.github.black-cat-preview').each do |comment|
-								pdf.text "Comment: " + comment['body'] + "\n"
-								pdf.text "Relevant Lines in " + comment['path'] + ": \n" + comment['diff_hunk'] + "\n"
-							end
-							pdf.text "Review State: " + review['state'] + "\n"
-							
-						end
-					end
-					pdf.text "Merged at: " + pullrequest['merged_at'].strftime('%Y-%m-%d %H:%M %p') + "\n"
-					pdf.text "\n"
+					pdf.text "Review State: " + review['state'] + "\n"
 					
-					pr_commits = client.pull_request_commits(repo,pullrequest['number'])
-					pr_commits.each do |pr_commit| 
-						commit =  client.commit(repo,pr_commit['sha'])
-						pdf.text "Commit by " + commit['commit']['committer']['name'] + " on " + commit['commit']['committer']['date'].strftime('%Y-%m-%d %H:%M %p') + "\n"
-						pdf.text "Commit message: " + commit['commit']['message'] + "\n"
-						pdf.text "URL: " + commit['html_url'] + "\n"
-						pdf.text "---------------\n"
-						pdf.text "Additions: " + commit['stats']['additions'].to_s + " - Deletions: " + commit['stats']['deletions'].to_s
-						commit['files'].each do |file|
-							pdf.text "Changes: \n\n"
-							if file['patch']
-								pdf.text file['patch'] + "\n\n"
-							end
-							pdf.text "End of change \n"
-						end
+				end
+			end
+			pdf.text "Merged at: " + pullrequest['merged_at'].strftime('%Y-%m-%d %H:%M %p') + "\n"
+			pdf.text "\n"
+			
+			pr_commits = client.pull_request_commits(repo,pullrequest['number'])
+			pr_commits.each do |pr_commit| 
+				commit =  client.commit(repo,pr_commit['sha'])
+				pdf.text "Commit by " + commit['commit']['committer']['name'] + " on " + commit['commit']['committer']['date'].strftime('%Y-%m-%d %H:%M %p') + "\n"
+				pdf.text "Commit message: " + commit['commit']['message'] + "\n"
+				pdf.text "URL: " + commit['html_url'] + "\n"
+				pdf.text "---------------\n"
+				pdf.text "Additions: " + commit['stats']['additions'].to_s + " - Deletions: " + commit['stats']['deletions'].to_s
+				commit['files'].each do |file|
+					pdf.text "Changes: \n\n"
+					if file['patch']
+						pdf.text file['patch'] + "\n\n"
 					end
+					pdf.text "End of change \n"
 				end
 			end
 		end
 	end
 end
-if path.nil? 
-	path = ''
-end
-pdf.render_file "reports/Pull Requests - " + repo.gsub("\/","-").to_s + " " + path.gsub("\/","-") + " - " + start_date.gsub("\/","-").to_s + " - " + end_date.gsub("\/","-").to_s + " - Report.pdf"
+pdf.render_file "reports/Pull Requests - " + repo.gsub("\/","-").to_s + " - " + start_date.gsub("\/","-").to_s + " - " + end_date.gsub("\/","-").to_s + " - Report.pdf"
 
 
 
